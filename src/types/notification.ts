@@ -16,6 +16,7 @@ export enum NotificationType {
   REMAINING_PAID = 'remaining_paid',
   PROPOSAL_ACCEPTED = 'proposal_accepted',
   PROPOSAL_REJECTED = 'proposal_rejected',
+  NEW_MESSAGE = 'new_message',
 
   // System
   VERIFY_ACCOUNT_REMINDER = 'verify_account_reminder',

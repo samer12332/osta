@@ -19,6 +19,7 @@ export interface Post {
   status: "open" | "accepted" | "cancelled";
   acceptedProposal?: string | Proposal | null;
   requestId?: string | null;
+  hasApplied?: boolean;
   createdAt: string;
   updatedAt: string;
 }

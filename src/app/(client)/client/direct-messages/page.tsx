@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/api/axios";
 import { useAuth } from "@/hooks/useAuth";
@@ -20,6 +20,27 @@ export default function ClientDirectMessagesPage() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const requestIdFromUrl = searchParams.get("requestId");
+  const postIdFromUrl = searchParams.get("postId");
+  const technicianIdFromUrl = searchParams.get("technicianId");
+  const titleFromUrl = searchParams.get("title");
+  const clientNameFromUrl = searchParams.get("clientName");
+
+  const customRoomFromUrl = useMemo<Room | null>(
+    () =>
+      postIdFromUrl && technicianIdFromUrl
+        ? {
+            id: `custom_${postIdFromUrl}_${technicianIdFromUrl}`,
+            variant: "custom",
+            otherPartyName: clientNameFromUrl ?? "الفني",
+            initials: (clientNameFromUrl ?? "الفني").slice(0, 2),
+            title: titleFromUrl ?? "خدمة مخصصة",
+            unreadCount: 0,
+            postId: postIdFromUrl,
+            technicianId: technicianIdFromUrl,
+          }
+        : null,
+    [clientNameFromUrl, postIdFromUrl, technicianIdFromUrl, titleFromUrl],
+  );
 
   const [rooms, setRooms] = useState<Room[]>([]);
   const [activeRoom, setActiveRoom] = useState<Room | null>(null);
@@ -30,10 +51,24 @@ export default function ClientDirectMessagesPage() {
     (room: Room) => {
       setActiveRoom(room);
 
-      if (!room.requestId) return;
-
       const params = new URLSearchParams(searchParams.toString());
-      params.set("requestId", room.requestId);
+
+      if (room.variant === "custom" && room.postId && room.technicianId) {
+        params.delete("requestId");
+        params.set("postId", room.postId);
+        params.set("technicianId", room.technicianId);
+        params.set("title", room.title);
+        params.set("clientName", room.otherPartyName);
+      } else if (room.requestId) {
+        params.delete("postId");
+        params.delete("technicianId");
+        params.delete("title");
+        params.delete("clientName");
+        params.set("requestId", room.requestId);
+      } else {
+        return;
+      }
+
       router.replace(`${pathname}?${params.toString()}`, { scroll: false });
     },
     [pathname, router, searchParams]
@@ -57,6 +92,10 @@ export default function ClientDirectMessagesPage() {
 
         setRooms(mapped);
         setActiveRoom((prev) => {
+          if (customRoomFromUrl) {
+            return customRoomFromUrl;
+          }
+
           if (requestIdFromUrl) {
             return mapped.find((room) => room.requestId === requestIdFromUrl) ?? null;
           }
@@ -79,7 +118,7 @@ export default function ClientDirectMessagesPage() {
         if (!silent) setIsLoadingRooms(false);
       }
     },
-    [isReady, requestIdFromUrl, token, userId]
+    [customRoomFromUrl, isReady, requestIdFromUrl, token, userId]
   );
 
   useEffect(() => {
@@ -100,13 +139,17 @@ export default function ClientDirectMessagesPage() {
     };
 
     socket.on("newMessage", syncRooms);
+    socket.on("newCustomMessage", syncRooms);
     socket.on("messagesRead", syncRooms);
     socket.on("roomClosed", syncRooms);
+    socket.on("customRoomClosed", syncRooms);
 
     return () => {
       socket.off("newMessage", syncRooms);
+      socket.off("newCustomMessage", syncRooms);
       socket.off("messagesRead", syncRooms);
       socket.off("roomClosed", syncRooms);
+      socket.off("customRoomClosed", syncRooms);
     };
   }, [isReady, refreshRooms, socket, token, userId]);
 

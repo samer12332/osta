@@ -3,6 +3,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { Socket } from "socket.io-client";
 import { api } from "@/api/axios";
+import { playMessageBeep } from "./useMessageSound";
+import { playAudioFile, playToneSequence, setupAudioUnlock } from "@/lib/audio";
 
 export interface NotificationItem {
   _id: string;
@@ -18,38 +20,11 @@ export interface NotificationItem {
 // ── NOTIFICATION SOUND ────────────────────────────────────────────────────────
 
 function playNotificationBeep() {
-  try {
-    const ctx = new AudioContext();
-
-    const playTone = (
-      frequency: number,
-      startTime: number,
-      duration: number,
-    ) => {
-      const oscillator = ctx.createOscillator();
-      const gainNode = ctx.createGain();
-
-      oscillator.connect(gainNode);
-      gainNode.connect(ctx.destination);
-
-      oscillator.type = "sine";
-      oscillator.frequency.setValueAtTime(frequency, startTime);
-
-      // Fade in then out smoothly so it doesn't click
-      gainNode.gain.setValueAtTime(0, startTime);
-      gainNode.gain.linearRampToValueAtTime(0.3, startTime + 0.02);
-      gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
-
-      oscillator.start(startTime);
-      oscillator.stop(startTime + duration);
-    };
-
-    const now = ctx.currentTime;
-    playTone(880, now, 0.15);
-    playTone(1100, now + 0.15, 0.2);
-
-    setTimeout(() => ctx.close(), 600);
-  } catch {}
+  playAudioFile("/sounds/notification.wav", 0.55);
+  playToneSequence([
+    { frequency: 880, offset: 0, duration: 0.15, gain: 0.3 },
+    { frequency: 1100, offset: 0.15, duration: 0.2, gain: 0.3 },
+  ]);
 }
 
 export function useNotifications(
@@ -58,6 +33,8 @@ export function useNotifications(
 ) {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [latestNotification, setLatestNotification] =
+    useState<NotificationItem | null>(null);
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
@@ -89,12 +66,19 @@ export function useNotifications(
     return () => window.clearTimeout(timeoutId);
   }, [refreshList]);
 
+  useEffect(() => setupAudioUnlock(), []);
+
   useEffect(() => {
     if (!socket || !currentUserId) return;
 
     const onNewNotification = (payload: NotificationItem) => {
       setNotifications((prev) => [payload, ...prev]);
-      playNotificationBeep();
+      setLatestNotification(payload);
+      if (payload.type === "new_message") {
+        playMessageBeep();
+      } else {
+        playNotificationBeep();
+      }
     };
 
     socket.on("notification", onNewNotification);
@@ -111,5 +95,17 @@ export function useNotifications(
     } catch {}
   }, []);
 
-  return { notifications, isLoading, unreadCount, refreshList, markAllAsRead };
+  const clearLatestNotification = useCallback(() => {
+    setLatestNotification(null);
+  }, []);
+
+  return {
+    notifications,
+    isLoading,
+    unreadCount,
+    latestNotification,
+    refreshList,
+    markAllAsRead,
+    clearLatestNotification,
+  };
 }

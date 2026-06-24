@@ -8,6 +8,8 @@ import OngoingOrdersSection, {
 } from "@/components/sections/client/current-orders/OngoingOrdersSection";
 import LatestCompletedOrdersSection from "@/components/sections/client/current-orders/LatestCompletedOrdersSection";
 import HeroSection from "@/components/sections/client/current-orders/HeroSection";
+import RateScreen from "@/components/sections/client/tracking/RateScreen";
+import RateSuccessScreen from "@/components/sections/client/tracking/RateSuccessScreen";
 import { Post } from "@/types/post.types";
 import { usePolling } from "@/hooks/usePolling";
 
@@ -39,6 +41,11 @@ export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [openPosts, setOpenPosts] = useState<Post[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(true);
+  const [selectedOrderToRate, setSelectedOrderToRate] = useState<Order | null>(null);
+  const [ratingSubmitting, setRatingSubmitting] = useState(false);
+  const [ratingError, setRatingError] = useState("");
+  const [givenRating, setGivenRating] = useState(0);
+  const [showRateSuccess, setShowRateSuccess] = useState(false);
 
   const fetchAll = useCallback(async (showLoader: boolean) => {
     if (showLoader) setLoadingOrders(true);
@@ -99,6 +106,48 @@ export default function OrdersPage() {
       sessionStorage.removeItem("pendingDepositRequestId");
   }, [orders]);
 
+  const handleOpenRateModal = useCallback((order: Order) => {
+    setSelectedOrderToRate(order);
+    setRatingError("");
+    setShowRateSuccess(false);
+  }, []);
+
+  const handleCloseRatingFlow = useCallback(() => {
+    setSelectedOrderToRate(null);
+    setRatingSubmitting(false);
+    setRatingError("");
+    setShowRateSuccess(false);
+  }, []);
+
+  const handleSubmitRating = useCallback(
+    async (rating: number, comment: string) => {
+      if (!selectedOrderToRate) return;
+
+      setRatingSubmitting(true);
+      setRatingError("");
+
+      try {
+        await api.post("/reviews", {
+          requestId: selectedOrderToRate._id,
+          rating,
+          ...(comment.trim() ? { comment: comment.trim() } : {}),
+        });
+        setGivenRating(rating);
+        setShowRateSuccess(true);
+        await fetchAll(false);
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "حصل خطأ، حاول تاني";
+        setRatingError(message);
+      } finally {
+        setRatingSubmitting(false);
+      }
+    },
+    [fetchAll, selectedOrderToRate],
+  );
+
   return (
     <div className="min-h-screen">
       <HeroSection />
@@ -113,8 +162,29 @@ export default function OrdersPage() {
             openPosts={openPosts}
             onCancelled={() => void fetchAll(false)}
           />
-          <LatestCompletedOrdersSection orders={orders} />
+          <LatestCompletedOrdersSection
+            orders={orders}
+            onRateNow={handleOpenRateModal}
+          />
         </>
+      )}
+
+      {selectedOrderToRate && !showRateSuccess && (
+        <RateScreen
+          technicianName={
+            selectedOrderToRate.assignedTechnician?.fullName ?? "الفني"
+          }
+          onSubmit={handleSubmitRating}
+          submitting={ratingSubmitting}
+          error={ratingError}
+        />
+      )}
+
+      {selectedOrderToRate && showRateSuccess && (
+        <RateSuccessScreen
+          rating={givenRating}
+          onBackToHome={handleCloseRatingFlow}
+        />
       )}
     </div>
   );

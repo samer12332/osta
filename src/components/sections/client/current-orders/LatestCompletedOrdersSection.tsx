@@ -5,6 +5,10 @@ import Link from "next/link";
 import Image from "next/image";
 import { Order } from "./OngoingOrdersSection";
 
+type ReviewLikeOrder = Order & {
+  review?: { rating: number; comment?: string } | null;
+};
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const formatDate = (dateStr: string) =>
@@ -16,13 +20,19 @@ const formatDate = (dateStr: string) =>
 
 // ─── Completed Card ───────────────────────────────────────────────────────────
 
-function CompletedOrderCard({ order }: { order: Order }) {
+function CompletedOrderCard({
+  order,
+  onRateNow,
+}: {
+  order: Order;
+  onRateNow: (order: Order) => void;
+}) {
   const technicianName = order.assignedTechnician?.fullName ?? "—";
   const finalCost = order.totalPrice ?? null;
 
   // الـ API بيبعت "review" مش "clientReview"
   const clientRating =
-    order.clientReview?.rating ?? (order as any).review?.rating ?? null;
+    order.clientReview?.rating ?? (order as ReviewLikeOrder).review?.rating ?? null;
 
   // صورة الخدمة من serviceId.image
   const serviceImage = order.serviceId?.image ?? null;
@@ -75,13 +85,16 @@ function CompletedOrderCard({ order }: { order: Order }) {
               />
             ))
           ) : (
-            <Link
-              href={`/client/orders`}
+            <button
+              type="button"
               className="text-xs text-[var(--primary-color)] font-bold underline underline-offset-2"
-              onClick={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                onRateNow(order);
+              }}
             >
               قيّم الآن
-            </Link>
+            </button>
           )}
         </div>
       </div>
@@ -112,12 +125,14 @@ function CompletedOrderCard({ order }: { order: Order }) {
 
 interface Props {
   orders: Order[];
+  onRateNow: (order: Order) => void;
 }
 
-export default function LatestCompletedOrdersSection({ orders }: Props) {
+export default function LatestCompletedOrdersSection({
+  orders,
+  onRateNow,
+}: Props) {
   const completedOrders = orders.filter((o) => o.status === "completed");
-
-  console.log("completed order:", JSON.stringify(completedOrders[0], null, 2));
 
 
   return (
@@ -143,7 +158,11 @@ export default function LatestCompletedOrdersSection({ orders }: Props) {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {completedOrders.map((order) => (
-            <CompletedOrderCard key={order._id} order={order} />
+            <CompletedOrderCard
+              key={order._id}
+              order={order}
+              onRateNow={onRateNow}
+            />
           ))}
         </div>
       )}

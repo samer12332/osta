@@ -8,7 +8,6 @@ import {
   BriefcaseBusiness,
   HelpCircle,
   Menu,
-  MessageCircle,
   Ticket,
   WalletCards,
   X,
@@ -26,6 +25,7 @@ import ProfileDropdown from "@/components/sections/technician/profile/ProfileDro
 import { useNotificationSocket } from "@/hooks/useNotificationSocket";
 import { useNotifications } from "@/hooks/useNotifications";
 import NotificationPanel from "@/components/notifications/NotificationPanel";
+import NotificationToast from "@/components/notifications/NotificationToast";
 import SupportMenuPanel from "@/components/layout/support/SupportMenuPanel";
 
 const SUPPORT_PATH = "/technician/support";
@@ -57,8 +57,6 @@ export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [workMenuOpen, setWorkMenuOpen] = useState(false);
   const [supportMenuOpen, setSupportMenuOpen] = useState(false);
-  const workMenuRef = useRef<HTMLDivElement | null>(null);
-  const supportMenuRef = useRef<HTMLDivElement | null>(null);
   const desktopWorkMenuRef = useRef<HTMLDivElement | null>(null);
   const desktopSupportMenuRef = useRef<HTMLDivElement | null>(null);
   const { token, userId, role } = useAuth();
@@ -67,7 +65,7 @@ export default function Navbar() {
   const isSupportRoute = pathname.startsWith(SUPPORT_PATH);
 
   const { socket } = useSocket(token);
-  const { total } = useUnreadTotal(socket, userId, role);
+  const { total, refreshTotal } = useUnreadTotal(socket, userId, role);
   // ── PROFILE DROPDOWN ────────────────────────────────────────────────────────
   const [profileOpen, setProfileOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
@@ -75,8 +73,14 @@ export default function Navbar() {
   const [notificationPanelOpen, setNotificationPanelOpen] = useState(false);
 
   const { socket: notificationSocket } = useNotificationSocket(userId);
-  const { notifications, isLoading, unreadCount, markAllAsRead } =
-    useNotifications(notificationSocket, userId);
+  const {
+    notifications,
+    isLoading,
+    unreadCount,
+    latestNotification,
+    markAllAsRead,
+    clearLatestNotification,
+  } = useNotifications(notificationSocket, userId);
 
   const handleBellClick = () => {
     setNotificationPanelOpen((prev) => {
@@ -84,10 +88,23 @@ export default function Navbar() {
 
       if (next && unreadCount > 0) {
         void markAllAsRead();
+        clearLatestNotification();
       }
       return next;
     });
   };
+
+  useEffect(() => {
+    if (notificationPanelOpen && latestNotification) {
+      clearLatestNotification();
+    }
+  }, [clearLatestNotification, latestNotification, notificationPanelOpen]);
+
+  useEffect(() => {
+    if (latestNotification?.type === "new_message") {
+      void refreshTotal();
+    }
+  }, [latestNotification, refreshTotal]);
   // ─────────────────────────────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -392,6 +409,12 @@ export default function Navbar() {
           </div>
         </div>
       ) : null}
+
+      <NotificationToast
+        notification={notificationPanelOpen ? null : latestNotification}
+        onClose={clearLatestNotification}
+        targetRoute="/technician/orders"
+      />
     </nav>
   );
 }

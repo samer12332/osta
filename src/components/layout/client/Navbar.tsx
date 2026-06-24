@@ -5,7 +5,16 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
-import { Menu, X, User, CreditCard, FileText, LogOut } from "lucide-react";
+import {
+  Menu,
+  X,
+  User,
+  CreditCard,
+  FileText,
+  LogOut,
+  HelpCircle,
+  Ticket,
+} from "lucide-react";
 import logoImage from "@/assets/images/logo.svg";
 import dmsIcon from "@/assets/icons/Dms.svg";
 import bellIcon from "@/assets/icons/notification.svg";
@@ -19,6 +28,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useNotificationSocket } from "@/hooks/useNotificationSocket";
 import { useNotifications } from "@/hooks/useNotifications";
 import NotificationPanel from "@/components/notifications/NotificationPanel";
+import NotificationToast from "@/components/notifications/NotificationToast";
 import SupportMenuPanel from "@/components/layout/support/SupportMenuPanel";
 
 const SUPPORT_PATH = "/client/support";
@@ -104,11 +114,17 @@ export default function Navbar() {
   // ─────────────────────────────────────────────────────────────────────────────
 
   const { socket } = useSocket(token);
-  const { total } = useUnreadTotal(socket, userId, role);
+  const { total, refreshTotal } = useUnreadTotal(socket, userId, role);
 
   const { socket: notificationSocket } = useNotificationSocket(userId);
-  const { notifications, isLoading, unreadCount, markAllAsRead } =
-    useNotifications(notificationSocket, userId);
+  const {
+    notifications,
+    isLoading,
+    unreadCount,
+    latestNotification,
+    markAllAsRead,
+    clearLatestNotification,
+  } = useNotifications(notificationSocket, userId);
 
   const handleBellClick = () => {
     setNotificationPanelOpen((prev) => {
@@ -116,10 +132,23 @@ export default function Navbar() {
 
       if (next && unreadCount > 0) {
         void markAllAsRead();
+        clearLatestNotification();
       }
       return next;
     });
   };
+
+  useEffect(() => {
+    if (notificationPanelOpen && latestNotification) {
+      clearLatestNotification();
+    }
+  }, [clearLatestNotification, latestNotification, notificationPanelOpen]);
+
+  useEffect(() => {
+    if (latestNotification?.type === "new_message") {
+      void refreshTotal();
+    }
+  }, [latestNotification, refreshTotal]);
   // ─────────────────────────────────────────────────────────────────────────────
 
   return (
@@ -387,6 +416,12 @@ export default function Navbar() {
           {/* ─────────────────────────────────────────────────────────────────────── */}
         </div>
       )}
+
+      <NotificationToast
+        notification={notificationPanelOpen ? null : latestNotification}
+        onClose={clearLatestNotification}
+        targetRoute="/client/orders"
+      />
     </nav>
   );
 }

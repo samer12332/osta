@@ -40,10 +40,12 @@ const formatTime = (timeStr: string): string => {
 export default function ServiceDetailsSection({
   post,
   proposalsCount,
+  hasApplied,
   onSubmitClick,
 }: {
   post: Post;
   proposalsCount: number;
+  hasApplied: boolean;
   onSubmitClick: () => void;
 }) {
   const router = useRouter();
@@ -152,10 +154,15 @@ export default function ServiceDetailsSection({
               تم نشر هذا الطلب لاستقبال العروض
             </p>
             <button
-              onClick={onSubmitClick}
-              className="flex items-center gap-1 text-xs font-bold bg-[var(--accent-color)] text-[var(--primary-color)] px-4 py-2 rounded-full"
+              onClick={() => !hasApplied && onSubmitClick()}
+              disabled={hasApplied}
+              className={`flex items-center gap-1 text-xs font-bold px-4 py-2 rounded-full ${
+                hasApplied
+                  ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                  : "bg-[var(--accent-color)] text-[var(--primary-color)]"
+              }`}
             >
-              تقديم
+              {hasApplied ? "تم التقديم" : "تقديم"}
             </button>
           </div>
         </div>

@@ -6,11 +6,19 @@ import Image from "next/image";
 import walletIcon from "@/assets/icons/wallet.svg";
 import { api } from "@/api/axios";
 
+type ApiError = {
+  response?: {
+    data?: {
+      message?: string;
+    };
+  };
+};
+
 interface Props {
   postId: string;
   postTitle: string;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (postId: string) => void;
 }
 
 export default function SubmitProposalModal({
@@ -42,9 +50,11 @@ export default function SubmitProposalModal({
         estimatedTime: estimatedTime.trim(),
         ...(description.trim() ? { description: description.trim() } : {}),
       });
-      onSuccess();
-    } catch (err: any) {
-      setError(err?.response?.data?.message ?? "حصل خطأ، حاول تاني");
+      onSuccess(postId);
+    } catch (err) {
+      const message =
+        (err as ApiError)?.response?.data?.message ?? "\u062d\u0635\u0644 \u062e\u0637\u0623\u060c \u062d\u0627\u0648\u0644 \u062a\u0627\u0646\u064a";
+      setError(message);
     } finally {
       setSubmitting(false);
     }

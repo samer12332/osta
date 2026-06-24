@@ -52,7 +52,13 @@ interface CustomPost {
   status: "open" | "accepted" | "cancelled";
   createdAt: string;
   proposalCount: number;
+  hasApplied?: boolean;
 }
+
+type CustomPostsResponseItem = CustomPost & {
+  proposalsCount?: number;
+  proposals?: unknown[];
+};
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -155,6 +161,7 @@ function CustomPostCard({
   onSubmit: (id: string, title: string) => void;
 }) {
   const router = useRouter();
+  const hasApplied = Boolean(post.hasApplied);
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 p-5 mb-4" dir="rtl">
@@ -218,11 +225,17 @@ function CustomPostCard({
 
                   <button
                     onClick={() =>
+                      !hasApplied &&
                       onSubmit(post._id, post.title ?? post.categoryId?.name ?? "خدمة مخصصة")
                     }
-                    className="min-w-[90px] h-10 rounded-full font-bold text-sm bg-[var(--accent-color)] text-[var(--primary-color)] transition-all"
+                    disabled={hasApplied}
+                    className={`min-w-[90px] h-10 rounded-full font-bold text-sm transition-all ${
+                      hasApplied
+                        ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                        : "bg-[var(--accent-color)] text-[var(--primary-color)]"
+                    }`}
                   >
-                    تقديم
+                    {hasApplied ? "تم التقديم" : "تقديم"}
                   </button>
                 </div>
               </div>
@@ -281,7 +294,6 @@ export default function TechnicianRequestsPage() {
   // ─── fetch popular ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (activeTab !== "popular") return;
-    setLoading(true);
     api
       .get("/requests/pending")
       .then((res) => setPopularRequests(res.data.data))
@@ -292,15 +304,15 @@ export default function TechnicianRequestsPage() {
 // ─── fetch custom ───────────────────────────────────────────────────────────
 useEffect(() => {
   if (activeTab !== "custom") return;
-  setLoadingCustom(true);
   api
     .get("/posts")
     .then((res) => {
-      const posts = res.data.data ?? [];
+      const posts: CustomPostsResponseItem[] = res.data.data ?? [];
       // الـ proposalCount جاي مباشرة من الـ API
-      const withCounts: CustomPost[] = posts.map((post: any) => ({
+      const withCounts: CustomPost[] = posts.map((post) => ({
         ...post,
         proposalCount: post.proposalsCount ?? post.proposals?.length ?? 0,
+        hasApplied: Boolean(post.hasApplied),
       }));
       setCustomPosts(withCounts);
     })
@@ -344,7 +356,10 @@ useEffect(() => {
           <div className="mb-6">
             <div className="flex w-full rounded-full bg-[#E9EEEA] p-1">
               <button
-                onClick={() => setActiveTab("popular")}
+                onClick={() => {
+                  setLoading(true);
+                  setActiveTab("popular");
+                }}
                 className={`h-12 flex-1 rounded-full text-base font-bold transition-all ${
                   activeTab === "popular"
                     ? "border-2 border-[var(--accent-color)] bg-[var(--primary-color)] text-white"
@@ -354,7 +369,10 @@ useEffect(() => {
                 الخدمات الشائعة
               </button>
               <button
-                onClick={() => setActiveTab("custom")}
+                onClick={() => {
+                  setLoadingCustom(true);
+                  setActiveTab("custom");
+                }}
                 className={`h-12 flex-1 rounded-full text-base font-bold transition-all ${
                   activeTab === "custom"
                     ? "border-2 border-[var(--accent-color)] bg-[var(--primary-color)] text-white"

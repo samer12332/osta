@@ -50,6 +50,7 @@ export default function TechnicianPostDetailsPage({
   const [proposalsCount, setProposalsCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [hasApplied, setHasApplied] = useState(false);
 
   const [showProposalModal, setShowProposalModal] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -60,8 +61,10 @@ export default function TechnicianPostDetailsPage({
       .then((res) => {
         const data = res.data.data;
         setPost(data.post);
-        setProposals(data.proposals ?? []);
+        const nextProposals = data.proposals ?? [];
+        setProposals(nextProposals);
         setProposalsCount(data.proposalsCount ?? 0);
+        setHasApplied(nextProposals.some((proposal: Proposal) => proposal.isMyProposal));
       })
       .catch(() => setError("تعذر تحميل تفاصيل الطلب"))
       .finally(() => setLoading(false));
@@ -89,6 +92,7 @@ export default function TechnicianPostDetailsPage({
       <ServiceDetailsSection 
         post={post} 
         proposalsCount={proposalsCount}
+        hasApplied={hasApplied}
         onSubmitClick={() => setShowProposalModal(true)}
       />
       <ServiceProposalsSection
@@ -104,6 +108,7 @@ export default function TechnicianPostDetailsPage({
           onClose={() => setShowProposalModal(false)}
           onSuccess={() => {
             setShowProposalModal(false);
+            setHasApplied(true);
             setShowSuccess(true);
           }}
         />
