@@ -11,8 +11,8 @@ export class Review {
   @Prop({ type: Types.ObjectId, ref: 'Technician', required: true })
   technicianId: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'ServiceEntity', required: true })
-  serviceId: Types.ObjectId;
+  @Prop({ type: Types.ObjectId, ref: 'ServiceEntity', default: null })
+  serviceId: Types.ObjectId | null;
 
   @Prop({ type: Types.ObjectId, ref: 'MainRequest', required: true })
   requestId: Types.ObjectId;

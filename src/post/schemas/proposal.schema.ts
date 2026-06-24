@@ -38,3 +38,4 @@ export class Proposal {
 }
 
 export const ProposalSchema = SchemaFactory.createForClass(Proposal);
+ProposalSchema.index({ postId: 1, technicianId: 1 }, { unique: true });

@@ -7,6 +7,7 @@ import { ChatController } from './chat.controller';
 import { Message, MessageSchema } from './schemas/message.schema';
 import { ProfanityFilterService } from './profanity-filter.service';
 import { MainRequest, RequestSchema } from 'src/request/schemas/request.schema';
+import { NotificationModule } from 'src/notification/notification.module';
 import {
   Technician,
   TechnicianSchema,
@@ -26,6 +27,7 @@ import { Post, PostSchema } from 'src/post/schemas/post.schema';
     JwtModule.register({
       secret: process.env.JWT_SECRET,
     }),
+    NotificationModule,
   ],
   controllers: [ChatController],
   providers: [ChatGateway, ChatService, ProfanityFilterService],

@@ -109,6 +109,12 @@ export class ChatController {
         image?.path,
       );
 
+      await this.chatGateway.notifyRequestMessage(
+        requestId,
+        req.user.userId,
+        message,
+      );
+
       this.chatGateway.broadcastRequestMessage(
         requestId,
         message,
@@ -153,6 +159,13 @@ export class ChatController {
         req.user.role,
         body.content,
         image?.path,
+      );
+
+      await this.chatGateway.notifyCustomMessage(
+        postId,
+        technicianId,
+        req.user.userId,
+        message,
       );
 
       this.chatGateway.broadcastCustomMessage(

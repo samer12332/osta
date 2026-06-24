@@ -348,6 +348,47 @@ Reply with ONLY a JSON object: {"flagged": true/false, "reason": "short reason o
     );
   }
 
+  async getRequestNotificationContext(requestId: string, senderId: string) {
+    const request = await this.requestModel
+      .findById(requestId)
+      .select('userId assignedTechnician')
+      .lean();
+
+    if (!request || !request.assignedTechnician) {
+      throw new NotFoundException('Request not found');
+    }
+
+    const clientId = request.userId.toString();
+    const technicianId = request.assignedTechnician.toString();
+
+    return {
+      recipientId: senderId === clientId ? technicianId : clientId,
+      requestId,
+      chatVariant: 'fixed' as const,
+    };
+  }
+
+  async getCustomRequestNotificationContext(
+    postId: string,
+    technicianId: string,
+    senderId: string,
+  ) {
+    const post = await this.postModel.findById(postId).select('userId title').lean();
+    if (!post) {
+      throw new NotFoundException('Post not found');
+    }
+
+    const clientId = post.userId.toString();
+
+    return {
+      recipientId: senderId === clientId ? technicianId : clientId,
+      postId,
+      technicianId,
+      title: post.title,
+      chatVariant: 'custom' as const,
+    };
+  }
+
   // ── Shared: Get Messages ───────────────────────────────────────────────────
 
   async getMessages(roomId: string, limit = 50) {

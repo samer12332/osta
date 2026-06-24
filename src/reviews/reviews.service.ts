@@ -78,17 +78,17 @@ export class ReviewsService {
     const review = await this.reviewModel.create({
       userId: new Types.ObjectId(userId),
       technicianId: technician._id, // Technician document id
-      serviceId: request.serviceId!,
+      serviceId: request.serviceId ?? null,
       requestId: new Types.ObjectId(dto.requestId),
       rating: dto.rating,
       comment: dto.comment,
     });
 
     // 7. تحديث الـ averageRating على الـ Technician
-    await Promise.all([
-      this.updateTechnicianRating(technician._id.toString()),
-      this.updateServiceRating(request.serviceId!.toString()),
-    ]);
+    await this.updateTechnicianRating(technician._id.toString());
+    if (request.serviceId) {
+      await this.updateServiceRating(request.serviceId.toString());
+    }
 
     return {
       message: 'Review submitted successfully',
@@ -138,10 +138,10 @@ export class ReviewsService {
     await this.reviewModel.findByIdAndDelete(reviewId);
 
     // إعادة حساب الـ rating بعد الحذف
-    await Promise.all([
-      this.updateTechnicianRating(review.technicianId.toString()),
-      this.updateServiceRating(review.serviceId.toString()),
-    ]);
+    await this.updateTechnicianRating(review.technicianId.toString());
+    if (review.serviceId) {
+      await this.updateServiceRating(review.serviceId.toString());
+    }
 
     return { message: 'Review deleted successfully' };
   }
@@ -160,10 +160,10 @@ export class ReviewsService {
     .lean();
 
     // إعادة حساب الـ rating بعد التعديل
-    await Promise.all([
-      this.updateTechnicianRating(review.technicianId.toString()),
-      this.updateServiceRating(review.serviceId.toString()),
-    ]);
+    await this.updateTechnicianRating(review.technicianId.toString());
+    if (review.serviceId) {
+      await this.updateServiceRating(review.serviceId.toString());
+    }
 
     return { message: 'Review updated successfully', data: updated };
   }

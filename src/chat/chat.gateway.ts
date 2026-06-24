@@ -18,6 +18,8 @@ import { UserRole } from 'src/users/schemas/user.schema';
 import { UsePipes, ValidationPipe } from '@nestjs/common';
 import { SendMessageDto } from './dto/send-message.dto';
 import { MessageDocument } from './schemas/message.schema';
+import { NotificationService } from 'src/notification/notification.service';
+import { NotificationType } from 'src/notification/enums/notification-type.enum';
 
 @WebSocketGateway({
   cors: {
@@ -42,6 +44,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
     private chatService: ChatService,
     private jwtService: JwtService,
+    private notificationService: NotificationService,
   ) {}
 
   // ── Connection ─────────────────────────────────────────────────────────────
@@ -137,6 +140,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         user.userId,
         user.role,
         data.content.trim(),
+      );
+
+      await this.notifyRequestMessage(
+        data.requestId,
+        user.userId,
+        message,
       );
 
       this.broadcastRequestMessage(data.requestId, message, user.userId);
@@ -251,6 +260,13 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         user.userId,
         user.role,
         data.content.trim(),
+      );
+
+      await this.notifyCustomMessage(
+        data.postId,
+        technicianId,
+        user.userId,
+        message,
       );
 
       this.broadcastCustomMessage(
@@ -481,6 +497,72 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       isRead: false,
       createdAt: message.createdAt,
     };
+  }
+
+  private buildMessageNotificationBody(message: MessageDocument): string {
+    const content = message.content?.trim();
+    if (!content) {
+      return 'تم إرسال صورة جديدة إليك.';
+    }
+
+    const preview = content.length > 90 ? `${content.slice(0, 90)}...` : content;
+    return preview;
+  }
+
+  async notifyRequestMessage(
+    requestId: string,
+    senderId: string,
+    message: MessageDocument,
+  ) {
+    const context = await this.chatService.getRequestNotificationContext(
+      requestId,
+      senderId,
+    );
+
+    if (context.recipientId === senderId) {
+      return;
+    }
+
+    await this.notificationService.send({
+      recipientId: context.recipientId,
+      title: 'رسالة جديدة',
+      body: this.buildMessageNotificationBody(message),
+      type: NotificationType.NEW_MESSAGE,
+      requestId: context.requestId,
+      metadata: {
+        chatVariant: context.chatVariant,
+      },
+    });
+  }
+
+  async notifyCustomMessage(
+    postId: string,
+    technicianId: string,
+    senderId: string,
+    message: MessageDocument,
+  ) {
+    const context = await this.chatService.getCustomRequestNotificationContext(
+      postId,
+      technicianId,
+      senderId,
+    );
+
+    if (context.recipientId === senderId) {
+      return;
+    }
+
+    await this.notificationService.send({
+      recipientId: context.recipientId,
+      title: 'رسالة جديدة',
+      body: this.buildMessageNotificationBody(message),
+      type: NotificationType.NEW_MESSAGE,
+      metadata: {
+        chatVariant: context.chatVariant,
+        postId: context.postId,
+        technicianId: context.technicianId,
+        title: context.title,
+      },
+    });
   }
 
   broadcastRequestMessage(

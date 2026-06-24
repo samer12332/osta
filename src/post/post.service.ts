@@ -98,17 +98,46 @@ ${description}
   // ─── Get All Open Posts (TECHNICIAN) ──────
   // ────────────────────────────────
 
-  async findAllOpen(page = 1, limit = 10) {
+  async findAllOpen(technicianUserId: string, page = 1, limit = 10) {
+    if (!Types.ObjectId.isValid(technicianUserId)) {
+      throw new BadRequestException('Invalid technician id');
+    }
+
+    const technician = await this.technicianModel
+      .findOne({ userId: new Types.ObjectId(technicianUserId) })
+      .select('specialization.categoryId')
+      .lean()
+      .exec();
+
+    if (!technician) throw new NotFoundException('Technician not found');
+
+    const specializationCategoryId = technician.specialization?.categoryId;
+    if (!specializationCategoryId) {
+      return {
+        data: [],
+        total: 0,
+        page,
+        limit,
+        totalPages: 0,
+      };
+    }
+
+    const filter = {
+      status: PostStatus.OPEN,
+      categoryId: new Types.ObjectId(specializationCategoryId),
+    };
+
     const [posts, total] = await Promise.all([
       this.postModel
-        .find({ status: PostStatus.OPEN })
+        .find(filter)
         .populate('userId', '-password -refreshToken')
+        .populate('categoryId', 'name')
         .sort({ isEmergency: -1, createdAt: -1 })
         .skip((page - 1) * limit)
         .limit(limit)
         .lean()
         .exec(),
-      this.postModel.countDocuments({ status: PostStatus.OPEN }),
+      this.postModel.countDocuments(filter),
     ]);
 
     const postsWithProposals = await Promise.all(
@@ -142,7 +171,16 @@ ${description}
           }),
         );
 
-        return { ...post, proposals: proposalsWithTechnicianData ,proposalsCount: proposalsWithTechnicianData.length};
+        const hasApplied = proposals.some(
+          (proposal) => proposal.technicianId.toString() === technicianUserId,
+        );
+
+        return {
+          ...post,
+          proposals: proposalsWithTechnicianData,
+          proposalsCount: proposalsWithTechnicianData.length,
+          hasApplied,
+        };
       }),
     );
 
@@ -419,7 +457,7 @@ ${description}
     if (post.status !== PostStatus.OPEN)
       throw new BadRequestException('Post is no longer open');
 
-    const existing = await this.proposalModel.findOne({
+    const existing = await this.proposalModel.exists({
       postId: new Types.ObjectId(postId),
       technicianId: new Types.ObjectId(technicianId),
     });

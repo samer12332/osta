@@ -71,10 +71,11 @@ async createPost(
   @UseGuards(RolesGuard)
   @Roles(UserRole.TECHNICIAN)
   findAllOpen(
+    @Req() req,
     @Query('page') page = 1,
     @Query('limit') limit = 10,
   ) {
-    return this.postService.findAllOpen(+page, +limit);
+    return this.postService.findAllOpen(req.user.userId, +page, +limit);
   }
 
   // GET /posts/my ← CLIENT
